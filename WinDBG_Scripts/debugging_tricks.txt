@@ -1,0 +1,75 @@
+$$ Bypass Sleep Attempts
+bp kernelbase!sleepex ".printf \"Application tried to sleep: %u seconds...\",poi(esp+4)/1000;.echo;ed esp+4 0x0;g"
+
+$$ Break at entry point, set a breakpoint when anything tries to access the PEB isDebugged byte and assemble backwards from there.
+bp $exentry "ba r 1 $peb+0x2 \"ub\";g"
+
+$$ Break at entry point, zero out PEB isDebugged byte to  evade attempts to check this specific byte.
+bp $exentry "eb $peb+0x2 0x0"
+
+$$ Printout Files Being Created
+bp kernelbase!CreateFileW ".if(poi(esp+0x14) != 0n3){.printf \"Creating File: %mu\",poi(esp+0x4);.echo};g"
+bp kernelbase!CreateFileA ".if(poi(esp+0x14) != 0n3){.printf \"Creating File: %mu\",poi(esp+0x4);.echo};g"
+
+$$ Print Contents of File Buffer when being written to.
+bp kernelbase!WriteFile ".printf \"Dumping file contents from 0x%p as ASCII: %ma\",poi(esp+0x8),poi(esp+0x8);.echo;g"
+
+$$ Printout Files Being Deleted
+bp kernel32!DeleteFileW ".printf \"Deleting File: %mu\",poi(esp+4);.echo;g"
+bp kernel32!DeleteFileA ".printf \"Deleting File: %ma\",poi(esp);.echo;g"
+
+$$ Printout Files Being Moved
+bp kernel32!MoveFileExW ".printf \"File moved.\";.echo;.printf \"From: %mu\",poi(esp+0x4);.echo;.printf \"To: %mu\",poi(esp+0x8);.echo;g"
+bp kernel32!MoveFileExA ".printf \"File moved.\";.echo;.printf \"From: %ma\",poi(esp+0x4);.echo;.printf \"To: %ma\",poi(esp+0x8);.echo;g"
+
+$$ Printout Files Being Copied
+bp kernel32!CopyFileW ".printf \" Copying file: \";.echo;.printf \"\tFrom: %mu\",poi(esp+0x4);.echo;.printf \"\tTo: %mu\",poi(esp+0x8);.echo;g"
+bp kernel32!CopyFileA ".printf \" Copying file: \";.echo;.printf \"\tFrom: %ma\",poi(esp+0x4);.echo;.printf \"\tTo: %ma\",poi(esp+0x8);.echo;g"
+
+$$ Printout Registry Keys Being Created.
+bp kernel32!RegCreateKeyExA “.printf \”Creating RegKey: %ma\”,poi(esp+0x8);.echo;g”
+bp kernel32!RegCreateKeyExW “.printf \”Creating RegKey: %mu\”,poi(esp+0x8);.echo;g”
+
+$$ Printout Registry Keys Being Accessed.
+
+bp kernel32!RegOpenKeyExA ".printf \"Accessed RegKey: %ma\",poi(esp+0x8);.echo;g"
+bp kernel32!RegOpenKeyExW ".printf \"Accessed RegKey: %mu\",poi(esp+0x8);.echo;g"
+
+$$ Printout Registry Key Values being accessed.
+bp kernel32!RegQueryValueExA ".printf \"\tAccessed RegValue: %ma\",poi(esp+0x8);.echo;g"
+bp kernel32!RegQueryValueExW ".printf \"\tAccessed RegValue: %mu\",poi(esp+0x8);.echo;g"
+
+$$ Printout Registry Key Values being set.
+bp kernel32!RegSetValueExA ".printf \"Setting RegKey %ma to value: %ma\",poi(esp+0x8),poi(esp+0x14);.echo;g"
+bp kernel32!RegSetValueExW ".printf \"Setting RegKey %mu to value: %mu\",poi(esp+0x8),poi(esp+0x14);.echo;g"
+
+$$ Printout Services Being Created.
+bp advapi32!CreateServiceA ".printf \"Creating Service: \";.echo;.printf \"\tService Name: %ma\",poi(esp+0x4);.echo;.printf \"\tDisplay Name: %ma\",poi(esp+0x8);.echo;g"
+bp advapi32!CreateServiceW ".printf \"Creating Service: \";.echo;.printf \"\tService Name: %mu\",poi(esp+0x4);.echo;.printf \"\tDisplay Name: %mu\",poi(esp+0x8);.echo;g"
+
+$$ Printout Processes Being Created.
+bp kernel32!CreateProcessW ".printf \"Creating Process: %mu\",poi(esp+0x8);.echo;g"
+bp kernel32!CreateProcessA ".printf \"Creating Process: %ma\",poi(esp+0x8);.echo;g"
+
+$$ Printout Commands Being Executed
+bp shell32!shellexecuteW ".printf\"Running Command:\";.echo;\"\tOperation: %mu\";.echo;\"\tTarget: %mu\";.echo;\"\tParams: %mu\",poi(esp+0x8),poi(esp+0xC),poi(esp+0x10);.echo;g"
+bp shell32!shellexecuteA ".printf\"Running Command:\";.echo;\"\tOperation: %ma\";.echo;\"\tTarget: %ma\";.echo;\"\tParams: %mu\",poi(esp+0x8),poi(esp+0xC),poi(esp+0x10);.echo;g"
+bp shell32!shellExecuteExW ".printf\"Running Command:\";.echo;\"\tOperation: %mu\";.echo;\"\tTarget: %mu\";.echo;\"\tParams: %mu\",poi(poi(esp+0x4)+0xC),poi(poi(esp+0x4)+0x10),poi(poi(esp+0x4)+0x14)
+bp shell32!shellExecuteExA ".printf\"Running Command:\";.echo;\"\tOperation: %ma\";.echo;\"\tTarget: %ma\";.echo;\"\tParams: %ma\",poi(poi(esp+0x4)+0xC),poi(poi(esp+0x4)+0x10),poi(poi(esp+0x4)+0x14)
+
+$$ Printout Libraries Being Loaded.
+bp kernel32!LoadLibraryA ".printf \"Loading LibraryA: %ma\",poi(esp+0x4);.echo;g"
+bp kernel32!LoadLibraryW ".printf \"Loading LibraryW: %mu\",poi(esp+0x4);.echo;g"
+
+$$ Printout Functions Being Looked Up
+bp kernel32!GetProcAddress ".printf \"\t Looking up function: %ma\",poi(esp+0x8);.echo;g"
+
+$$ Search all of user-land memory for ascii based strings. IE: http://
+s -a 0x0 L?0x7FFFFFFF http://
+
+$$ Search all of user-land memory for unicode based strings. IE: http://
+s -u 0x0 L?0x7FFFFFFF http://
+
+$$ Examples of looping through memory and printing URLs found.
+.foreach (url {s –[1]a 0x0 L?0x7FFFFFFF http://}){.printf “Found URL: %ma\n”,${url}}
+.foreach (url {s –[1]u 0x0 L?0x7FFFFFFF http://}){.printf “Found URL: %mu\n”,${url}}
